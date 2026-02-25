@@ -1,0 +1,5 @@
+.streamlit/secrets.toml
+__pycache__/*
+lightning_logs/*
+debug.log
+app_data/*
