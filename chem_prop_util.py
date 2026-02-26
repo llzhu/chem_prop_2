@@ -3,6 +3,8 @@ import pandas as pd
 import numpy as np
 from sklearn.feature_selection import VarianceThreshold
 from rdkit import Chem, DataStructs
+from rdkit.Chem.Draw import rdMolDraw2D
+from rdkit.Chem import rdDepictor,AllChem
 from sklearn import preprocessing
 from rdkit.Chem import AllChem, Descriptors
 from rdkit.ML.Descriptors import MoleculeDescriptors
@@ -15,9 +17,8 @@ import re
 from dataclasses import dataclass, field
 from typing import List
 import math
-import torch
-from datetime import date
 from icecream import ic
+import base64
 
 BMP = 'Bond_Message_Passing' 
 AMP = 'Atom_Message_Passing'
@@ -40,6 +41,9 @@ THROBIN_IC50 = 'Thrombin_IC50'
 AD_HOC = 'ad_hoc'
 
 SMILES = 'SMILES'
+DO_NOT_HIGHLIGHT = "Do not highlight"
+HIGHLIGHT_ALL = "Highlight All"
+HIGHLIGHT_UNIQUE = "Highlight Unique"
 COMPOUND_ID = 'Compound_ID'
 STRUCTURE = 'Compound'
 CHEMBL_UNIT = 'standard_units'
@@ -316,3 +320,40 @@ def get_datapoint(mols, model_paras: ModelParas, ys=None, modify_model_paras=Tru
 
     return data_point
 
+
+
+def moltosvg(mol, molSize = (800,400), kekulize = False, highlight_sub=None, highlight_mode=DO_NOT_HIGHLIGHT):
+    
+    if  highlight_sub == None: # Cannot highlight if highlight_sub not provided
+        highlight_mode=DO_NOT_HIGHLIGHT
+    
+    mc = Chem.Mol(mol.ToBinary())
+    if kekulize:
+        try:
+            Chem.Kekulize(mc)
+        except:
+            mc = Chem.Mol(mol.ToBinary())
+    if not mc.GetNumConformers():
+        rdDepictor.Compute2DCoords(mc)
+    drawer = rdMolDraw2D.MolDraw2DSVG(molSize[0],molSize[1])
+    
+    if highlight_mode == DO_NOT_HIGHLIGHT:
+        drawer.DrawMolecule(mc)
+    elif highlight_mode in (HIGHLIGHT_UNIQUE, HIGHLIGHT_ALL):
+        highlight_tt = mc.GetSubstructMatches(highlight_sub)
+        hightlight_shape = np.shape(highlight_tt)
+        if hightlight_shape[0] == 1:
+            highlight_tuple = tuple(chain.from_iterable(highlight_tt))
+            drawer.DrawMolecule(mc, highlightAtoms=highlight_tuple)
+        else:
+            if highlight_mode == HIGHLIGHT_UNIQUE:
+                drawer.DrawMolecule(mc)
+            elif highlight_mode == HIGHLIGHT_ALL:
+                highlight_tuple = tuple(chain.from_iterable(highlight_tt))
+                drawer.DrawMolecule(mc, highlightAtoms=highlight_tuple)
+    drawer.FinishDrawing()
+    svg = drawer.GetDrawingText()
+    svg = svg.replace('svg:','')
+    b64 = base64.b64encode(svg.encode('utf-8')).decode("utf-8")
+    html = rf'<img src="data:image/svg+xml;base64, {b64}"/>'
+    return html

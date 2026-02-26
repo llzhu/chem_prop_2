@@ -1,5 +1,6 @@
 import streamlit as st
 import matplotlib.pyplot as plt
+import plotly.express as px
 from chem_prop_util import *
 import os
 from sklearn.metrics import root_mean_squared_error, r2_score
@@ -117,37 +118,39 @@ featurizer = featurizers.SimpleMoleculeMolGraphFeaturizer()
 d_set = data.MoleculeDataset(data_point, featurizer=featurizer)
 d_loader = data.build_dataloader(d_set, shuffle=False)
 
+with torch.inference_mode():
+    trainer = pl.Trainer(
+        logger=None,
+        enable_progress_bar=False,
+        accelerator="auto",
+        devices=1
+    )
+d_preds = trainer.predict(mpnn, d_loader)
+d_preds = np.concatenate(d_preds, axis=0)
+
+expt_label = app_vars.expt_col_name
+pred_label = f'pred_{expt_label}'
+    
+df[pred_label] = d_preds
+
+if app_vars.apply_log:
+    expt_label_ori = app_vars.orig_col_name
+    pred_label_ori = f'pred_{expt_label_ori}'
+        
+    df[expt_label_ori] = df[expt_label].apply(lambda y: pow(10,y))
+    df[pred_label_ori] = df[pred_label].apply(lambda y: pow(10,y))
+
+row_id = df.index.to_numpy()
+df.insert(loc=0, column='row_id', value=row_id)
+
+
 
 st.write('***')
 c1, c2 = st.columns(2)
 with c1:
-
-    with torch.inference_mode():
-        trainer = pl.Trainer(
-            logger=None,
-            enable_progress_bar=False,
-            accelerator="auto",
-            devices=1
-        )
-        d_preds = trainer.predict(mpnn, d_loader)
-
-
-    d_preds = np.concatenate(d_preds, axis=0)
+    highlight_only = st.checkbox('Display highlighted only.')
+    df_container = st.container()
     
-    expt_label = app_vars.expt_col_name
-    pred_label = f'pred_{expt_label}'
-    
-    df[pred_label] = d_preds
-
-    
-    if app_vars.apply_log:
-        expt_label_ori = app_vars.orig_col_name
-        pred_label_ori = f'pred_{expt_label_ori}'
-        
-        df[expt_label_ori] = df[expt_label].apply(lambda y: pow(10,y))
-        df[pred_label_ori] = df[pred_label].apply(lambda y: pow(10,y))
-
-    st.dataframe(df)
 
 with c2:
     
@@ -157,47 +160,91 @@ with c2:
     
       
     if draw_exp_scale:
-        y_expt = df[expt_label_ori]
-        y_pred = df[pred_label_ori]
+        # y_expt = df[expt_label_ori]
+        # y_pred = df[pred_label_ori]
         expt_label = expt_label_ori
         pred_label = pred_label_ori
         
-    else:
-        y_expt = df[expt_label]
-        y_pred = df[pred_label]
+   
+    y_expt = df[expt_label]
+    y_pred = df[pred_label]
         
-        
-    
-       
-            
-    
-
     r2 = r2_score(y_expt, y_pred)
     rmse = root_mean_squared_error(y_expt, y_pred)
         
 
     st.write(f'R2: {round(r2, 2)}; RSME: {round(rmse, 2)}')
+############
 
-    fig, ax = plt.subplots()
-    sns.regplot(data=df, x=expt_label, y=pred_label,  ax=ax)
+    fig = px.scatter(
+        df,
+        x=expt_label,
+        y=pred_label,
+        custom_data=["row_id"] 
+    )
+
+    # fig.update_xaxes(
+    #     showline=True,
+    #     linewidth=2,
+    #     linecolor="black",
+    #     mirror=True
+    # )
+
+    # fig.update_yaxes(
+    #     showline=True,
+    #     linewidth=2,
+    #     linecolor="black",
+    #     mirror=True
+    # )
+
+    fig.update_layout(
+    shapes=[
+        dict(
+            type="rect",
+            xref="paper",
+            yref="paper",
+            x0=0,
+            y0=0,
+            x1=1,
+            y1=1,
+            line=dict(color="black", width=2),
+            fillcolor="rgba(0,0,0,0)"
+            )
+        ]
+    )
+
+    event = st.plotly_chart(
+        fig,
+        on_select="rerun",
+        width='stretch'
+    )
+
+    if event and event.selection and event.selection["points"]:
+        selected_ids = [
+            point["customdata"]['0'] for point in event.selection["points"]
+        ]
+
     
-    exp_min = df[expt_label].min()
-    exp_max = df[expt_label].max()
-        
-    pred_min = df[pred_label].min()
-    pred_max = df[pred_label].max()
-        
-    ax_min = min(exp_min, pred_min)
-    ax_max = max(exp_max, pred_max)
-    ax_len = ax_max-ax_min
-    ax_min -= ax_len*0.05
-    ax_max += ax_len*0.05
-        
-         
-    plt.xlim(ax_min, ax_max)
-    plt.ylim(ax_min, ax_max)
-       
-    st.pyplot(fig)
+        def highlight_row(row):
+            if row.name in selected_ids:
+                return ['background-color: yellow'] * len(row)
+            else:
+                return [''] * len(row)
+
+        if highlight_only:
+            df = df[df["row_id"].isin(selected_ids)]
+
+        style_df = df.style.apply(highlight_row, axis=1)
+        df_container.dataframe(style_df, hide_index=True)
+
+    else:
+        df_container.dataframe(df, hide_index=True)
+
+
+    with st.sidebar:
+        smi = df.at[selected_ids[0], SMILES]
+        mol = Chem.MolFromSmiles(smi)
+        st.write( moltosvg(mol), unsafe_allow_html=True) 
     
     
     if copy2master:
