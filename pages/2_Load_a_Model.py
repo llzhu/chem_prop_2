@@ -238,10 +238,10 @@ with c2:
         df_container.dataframe(style_df, hide_index=True)
 
         with st.sidebar:
-        smi = df.at[selected_ids[0], SMILES]
-        mol = Chem.MolFromSmiles(smi)
-        st.write( moltosvg(mol), unsafe_allow_html=True) 
-        
+            smi = df.at[selected_ids[0], SMILES]
+            mol = Chem.MolFromSmiles(smi)
+            st.write( moltosvg(mol), unsafe_allow_html=True) 
+
     else:
         df_container.dataframe(df, hide_index=True)
 
