@@ -16,10 +16,11 @@ if 'torch_file_paths' in st.session_state:
     torch_file_paths = st.session_state['torch_file_paths']
 
 app_vars: AppVars = None
-app_file = os.path.join(torch_file_paths.input_smiles_user, APP_FILE)
-with open(app_file, 'r', encoding='utf-8') as f:
-    app_vars = json.load(f)
-    app_vars =AppVars(**app_vars)
+if 'app_vars' in st.session_state:
+    app_vars = st.session_state['app_vars']
+else:
+    st.write(f"Go back to home page to start the applications.")
+    st.stop()
     
 env:Env = None
 if 'env' in st.session_state:
