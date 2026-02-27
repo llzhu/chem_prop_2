@@ -3,3 +3,4 @@ __pycache__/*
 lightning_logs/*
 debug.log
 app_data/*
+!app_data/.models

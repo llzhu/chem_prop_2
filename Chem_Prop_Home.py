@@ -55,7 +55,7 @@ st.session_state['env'] = env
 st.session_state['torch_file_paths'] = torch_file_paths
 
 if study == '--':
-        st.error('You must select a data set to continue.' )
+        st.error('You must select a dataset to create/upload a model. You must be an admin to manage models.' )
         st.stop()
        
 if not new_model:
