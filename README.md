@@ -1,6 +1,6 @@
-## ChemProp Implimentation with Streamlit 
+### ChemProp Implementation with Streamlit 
 
-- [ ] [ChemProp is a message passing neural network for molecular property prediction:](https://github.com/chemprop/chemprop)
+[ChemProp is a message passing neural network for molecular property prediction:](https://github.com/chemprop/chemprop)
 Yang, et al, **Analyzing Learned Molecular Representations for Property Prediction**, _J. Chem. Inf. Model._ 2019, 59, 3370−3388
 
 ### Delaney Solubility Data Set:

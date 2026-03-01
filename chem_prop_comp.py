@@ -14,10 +14,12 @@ def app_header():
         st.subheader('ChemProp:')
         st.markdown("Chemprop is a message passing neural network for molecular property prediction. [ChemProp Documentation](%s)" % url)
         st.markdown('Yang, et al, **Analyzing Learned Molecular Representations for Property Prediction**, _J. Chem. Inf. Model._ 2019, 59, 3370−3388')
-        st.markdown('Stokes, et al, **A Deep Learning Approach to Antibiotic Discovery**, _Cell_. 2020, 180, 688-702')
         st.subheader('Delaney Solubility Data Set:')
         st.markdown('Delaney, **Estimating Aqueous Solubility Directly from Molecular Structure**, _J. Chem. Inf. Comput. Sci._ 2004, 44, 3, 1000–1005.')
-        st.write('Delaney Solubility Data Set is included as a reference to validate our models.')
+        st.subheader('Thrombin_IC50:')
+        st.markdown('IC50 of inhibitory activity against human thrombin CHEMBL204 with the following query:')
+        st.markdown("""activity.filter(target_chembl_id='CHEMBL204').filter(standard_type='IC50').filter(standard_relation='=')
+                       .only(['molecule_chembl_id', 'canonical_smiles', 'standard_value', 'standard_units']""")
         st.write('***')
     
 def app_setup():

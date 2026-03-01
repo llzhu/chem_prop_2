@@ -19,6 +19,7 @@ from typing import List
 import math
 from icecream import ic
 import base64
+from itertools import chain
 
 BMP = 'Bond_Message_Passing' 
 AMP = 'Atom_Message_Passing'

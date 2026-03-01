@@ -183,20 +183,6 @@ with c2:
         custom_data=["row_id"] 
     )
 
-    # fig.update_xaxes(
-    #     showline=True,
-    #     linewidth=2,
-    #     linecolor="black",
-    #     mirror=True
-    # )
-
-    # fig.update_yaxes(
-    #     showline=True,
-    #     linewidth=2,
-    #     linecolor="black",
-    #     mirror=True
-    # )
-
     fig.update_layout(
     shapes=[
         dict(
