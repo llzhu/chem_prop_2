@@ -8,7 +8,7 @@ def app_header():
     gpu_str = 'GPU is available' if any_gpu else 'GPU is not available'
 
     st.subheader(f'This app uses ChemProp 2.x for propertyies/activities training and prediction. {gpu_str}')
-    read_me_exp = st.expander(f'About ChemProp and Delaney Dataset.', expanded=False)
+    read_me_exp = st.expander(f'About ChemProp and Datasets.', expanded=False)
     with read_me_exp:
         url = "https://chemprop.readthedocs.io/en/latest"
         st.subheader('ChemProp:')
