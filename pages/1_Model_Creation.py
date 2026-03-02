@@ -41,6 +41,10 @@ app_file = os.path.join(torch_file_paths.input_smiles_user, APP_FILE)
 with open(app_file, 'r', encoding='utf-8') as f:
     app_vars = json.load(f)
     app_vars =AppVars(**app_vars)
+
+if not app_vars.login_name:
+    st.write('You need to enter a login name in the home page to create a model.')
+    st.stop()
    
 col1, col2, col3, col4, col5, col6,  = st.columns(6)
 with col1:

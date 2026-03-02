@@ -25,7 +25,7 @@ def app_header():
 def app_setup():
     sel0, sel1, sel2 = st. columns(3)
     with sel0:
-        login_name = st.text_input('User name')
+        login_name = st.text_input('User name', placeholder='Enter a user name you can remember')
 
     with sel1:
         study = st.selectbox('Pick a dataset', ['--', DELANEY, THROBIN_IC50, AD_HOC])
@@ -42,7 +42,8 @@ def app_setup():
     
     st.write('***')
 
-    new_or_existing = st.radio('New model or using existing model?', ['Work with an Existing Model', 'Create New Model'], horizontal=True)
+    new_or_existing = st.radio('New model or using existing model?', ['Work with an Existing Model', 'Create New Model'], 
+                               horizontal=True, disabled=(login_name=='' or study=='--'))
     if new_or_existing == 'Create New Model':
         new_model = True
     else:

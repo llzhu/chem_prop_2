@@ -54,8 +54,8 @@ st.session_state['app_vars'] = app_vars   # basic paa vars are also in session
 st.session_state['env'] = env
 st.session_state['torch_file_paths'] = torch_file_paths
 
-if study == '--':
-        st.error('You must select a dataset to create/upload a model. You must be an admin to manage models.' )
+if study == '--' or not login_name:
+        st.error('You must enter a user name and select a dataset to create/upload a model. You must be an admin to manage models.' )
         st.stop()
        
 if not new_model:
