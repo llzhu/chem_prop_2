@@ -10,3 +10,6 @@ Delaney, **Estimating Aqueous Solubility Directly from Molecular Structure**, _J
 activities = activity.filter(target_chembl_id="CHEMBL204").filter(standard_type='IC50').filter(standard_relation='=')
             .only(['molecule_chembl_id', 'canonical_smiles', 'standard_value', 'standard_units'])
 
+### Deployment
+It is deployed on Streamlit community cloud:
+https://chemprop-regression-llzhu.streamlit.app/
