@@ -107,45 +107,6 @@ class Env:
     admins: List[str] = field(default_factory=list)
     modelers: List[str] = field(default_factory=list)
 
-# @st.cache_data
-# def get_rdkit_descriptors(mol_list):
-#     descriptor_names = [x[0] for x in Descriptors._descList]
-#     calc = MoleculeDescriptors.MolecularDescriptorCalculator(descriptor_names)
-#     mol_descriptors = []
-#     for mol in mol_list:
-#         descriptors = calc.CalcDescriptors(mol)
-#         mol_descriptors.append(descriptors)
-
-#     df = pd.DataFrame(mol_descriptors, columns=descriptor_names)
-#     return df
-
-
-# def get_dataset(env:Env, mols, add_fp, add_dc):
-#     df_extra = None
-#     if add_fp:
-#         df_extra = get_rdkit_fp(mols, remove_constant_fp=True)
-    
-#     if add_dc:
-#         df_dc = get_rdkit_descriptors(mols)
-#         if df_extra is not None:
-#             df_extra= pd.concat([df_extra, df_dc], axis=1)
-#         else:
-#             df_extra = df_dc 
-
-#     if df_extra is not None:
-#         data_point = [
-#                 data.MoleculeDatapoint(mol, x_d=X_d)
-#                 for mol, X_d in zip(mols, df_extra.to_numpy())
-#             ]
-#     else:
-#         data_point = [
-#                 data.MoleculeDatapoint(mol) for mol in mols
-#             ]
-           
-#     featurizer = featurizers.SimpleMoleculeMolGraphFeaturizer()
-#     d_set = data.MoleculeDataset(data_point, featurizer=featurizer)
-#     # d_loader = data.build_dataloader(d_set, shuffle=False)
-#     return d_set
 
 # Currently not used
 def get_rdkit_fp(mol_list, nb=2048, radius=4):
@@ -221,6 +182,8 @@ def convert_df_csv(df, index=False):
 #     df['mw'] = df['canonical_smiles'].apply(lambda x: ExactMolWt(Chem.MolFromSmiles(x)))
 #
 #     return df
+
+@st.cache_data
 def standarize(df_input: pd.DataFrame, study:str, value_column:str, apply_log:bool)-> tuple[pd.DataFrame, str]:
     ic(value_column)
     df_output = None
@@ -261,7 +224,34 @@ def get_floor(in_num: float, floor: float)-> float:
         out_num = floor
     return out_num
 
+@st.cache_data   
+def get_fp(mols, radius=2, fp_keys = None):
+
+    fps = [AllChem.GetMorganFingerprint(m, radius=2) for m in mols]
+    all_keys = set()
+    if fp_keys is None:
+        ic('Create fp keys')
+        for fp in fps:
+            all_keys.update(fp.GetNonzeroElements().keys())
+            all_keys = sorted(all_keys)
+    else:
+        all_keys = fp_keys
+
+    ic(all_keys[0])
+    ic(type(all_keys[0]))
     
+    data = []
+    for fp in fps:
+        row = []
+        elements = fp.GetNonzeroElements()
+        for k in all_keys:
+            row.append(elements.get(k, 0))
+        data.append(row)
+
+    df = pd.DataFrame(data, columns=all_keys)
+    return df
+
+@st.cache_data
 def get_rdkit_descriptors(mol_list, scale_dc:bool, scaler=None):
     descriptor_names = [x[0] for x in Descriptors._descList]
     calc = MoleculeDescriptors.MolecularDescriptorCalculator(descriptor_names)
@@ -281,7 +271,7 @@ def get_rdkit_descriptors(mol_list, scale_dc:bool, scaler=None):
     return np.array(mol_descriptors), scaler
     
 
-
+@st.cache_data
 def get_datapoint(mols, model_paras: ModelParas, ys=None, modify_model_paras=True):
     """ calculate datapoint; model_paras are updated if modify_model_paras=True
     """
@@ -322,7 +312,7 @@ def get_datapoint(mols, model_paras: ModelParas, ys=None, modify_model_paras=Tru
     return data_point
 
 
-
+@st.cache_data
 def moltosvg(mol, molSize = (800,400), kekulize = False, highlight_sub=None, highlight_mode=DO_NOT_HIGHLIGHT):
     
     if  highlight_sub == None: # Cannot highlight if highlight_sub not provided

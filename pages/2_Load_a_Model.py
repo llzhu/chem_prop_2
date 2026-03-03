@@ -1,5 +1,4 @@
 import streamlit as st
-import matplotlib.pyplot as plt
 import plotly.express as px
 from chem_prop_util import *
 import os
@@ -11,6 +10,7 @@ import pickle
 import json
 import seaborn as sns
 from chem_prop_util import *
+from chem_prop_comp import *
 
 torch_file_paths: TorchFilePaths = None
 if 'torch_file_paths' in st.session_state:
@@ -144,11 +144,13 @@ row_id = df.index.to_numpy()
 df.insert(loc=0, column='row_id', value=row_id)
 
 
+with st.sidebar:
+    mol_container = st.container()
 
 st.write('***')
 c1, c2 = st.columns(2)
 with c1:
-    highlight_only = st.checkbox('Display highlighted only.')
+    highlight_only = st.checkbox('Only display selected mol in the correction fig')
     df_container = st.container()
     
 
@@ -174,62 +176,9 @@ with c2:
         
 
     st.write(f'R2: {round(r2, 2)}; RSME: {round(rmse, 2)}')
-############
-
-    fig = px.scatter(
-        df,
-        x=expt_label,
-        y=pred_label,
-        custom_data=["row_id"] 
-    )
-
-    fig.update_layout(
-    shapes=[
-        dict(
-            type="rect",
-            xref="paper",
-            yref="paper",
-            x0=0,
-            y0=0,
-            x1=1,
-            y1=1,
-            line=dict(color="black", width=2),
-            fillcolor="rgba(0,0,0,0)"
-            )
-        ]
-    )
-
-    event = st.plotly_chart(
-        fig,
-        on_select="rerun",
-        width='stretch'
-    )
-
-    if event and event.selection and event.selection["points"]:
-        selected_ids = [
-            point["customdata"]['0'] for point in event.selection["points"]
-        ]
 
     
-        def highlight_row(row):
-            if row.name in selected_ids:
-                return ['background-color: yellow'] * len(row)
-            else:
-                return [''] * len(row)
-
-        if highlight_only:
-            df = df[df["row_id"].isin(selected_ids)]
-
-        style_df = df.style.apply(highlight_row, axis=1)
-        df_container.dataframe(style_df, hide_index=True)
-
-        with st.sidebar:
-            smi = df.at[selected_ids[0], SMILES]
-            mol = Chem.MolFromSmiles(smi)
-            st.write( moltosvg(mol), unsafe_allow_html=True) 
-
-    else:
-        df_container.dataframe(df, hide_index=True)
+    fig_df_structure(df, expt_label, pred_label, df_container, mol_container, highlight_only=highlight_only)
 
 
     

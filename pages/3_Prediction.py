@@ -4,9 +4,10 @@ from chemprop import data, featurizers, models, nn
 import torch
 from lightning import pytorch as pl
 from sklearn.metrics import root_mean_squared_error, r2_score
-import matplotlib.pyplot as plt
+import plotly.express as px
 import seaborn as sns
 from chem_prop_util import *
+from chem_prop_comp import *
 import json
 import pickle
 import os
@@ -22,11 +23,10 @@ else:
     st.write(f"Go back to home page to start the applications.")
     st.stop()
     
-env:Env = None
-if 'env' in st.session_state:
-    env = st.session_state['env']
-    
-    
+with st.sidebar:
+    mol_container = st.container()
+
+
 col1, col2 = st.columns([1,2])
 
 smiles = ''
@@ -95,7 +95,12 @@ with col1:
             id_col = st.selectbox('Select Compund ID Column if available:', options=col_all)  
             if  id_col != '--':
                 cmpd_list = df_input[id_col].tolist() 
-                
+
+            exp_col = st.selectbox('Select Experiment val Column if available:', options=col_all)  
+            if  exp_col != '--':
+                exp_val_list = df_input[exp_col].tolist()   
+
+
     df_pred = None
     if smiles_list:
         mols = [utils.make_mol(smi, keep_h=False, add_h=False) for smi in smiles_list]
@@ -123,57 +128,35 @@ with col1:
         
     
 with col2:
-    
-    # print(app_vars.TARGET, app_vars.TARGET_ORI, app_vars.expt_col_name, '================')
-    
-    expt_label = app_vars.expt_col_name
-    pred_label = f'pred_{app_vars.expt_label}'
-    
-    if cmpd_list:
-        if exp_val_list:
+
+    if exp_val_list:
+        expt_label = exp_col
+        pred_label = f'pred_{expt_label}'
+        if cmpd_list:
             list_of_tuples = list(zip(cmpd_list, smiles_list, exp_val_list, preds))
             df_pred = pd.DataFrame(list_of_tuples, columns=['Compound_ID', 'SMILES', expt_label, pred_label])
         else:
-            list_of_tuples = list(zip(cmpd_list, smiles_list, preds))
-            df_pred = pd.DataFrame(list_of_tuples, columns=['Compound_ID', 'SMILES', pred_label])
-    else:
-        if exp_val_list:
             list_of_tuples = list(zip(smiles_list, exp_val_list, preds))
             df_pred = pd.DataFrame(list_of_tuples, columns=['SMILES', expt_label, pred_label])
+    else:
+        expt_label=''
+        pred_label = f'pred_{app_vars.expt_col_name}'
+        if cmpd_list:
+            list_of_tuples = list(zip(cmpd_list, smiles_list, preds))
+            df_pred = pd.DataFrame(list_of_tuples, columns=['Compound_ID', 'SMILES', pred_label])
         else:
             list_of_tuples = list(zip(smiles_list, preds))
             df_pred = pd.DataFrame(list_of_tuples, columns=['SMILES', pred_label])
             
 
-    st.dataframe(df_pred)
-    
-    if  expt_label in df_pred.columns:
-        st.write('***')
-        y_expt = df_pred[expt_label]
-        y_pred = df_pred[pred_label]
-            
-        r2_pred = r2_score(y_expt, y_pred)
-        rmse_pred = root_mean_squared_error(y_expt, y_pred)
-        
-        st.write(f'R2: {round(r2_pred, 2)}; RSME: {round(rmse_pred, 2)}')
-        
-        fig, ax = plt.subplots()
-        sns.regplot(data=df_pred, x=expt_label, y=pred_label, ax=ax)
-        exp_min = df_pred[expt_label].min()
-        exp_max = df_pred[expt_label].max()
-        
-        pred_min = df_pred[pred_label].min()
-        pred_max = df_pred[pred_label].max()
-        
-        ax_min = min(exp_min, pred_min)
-        ax_max = max(exp_max, pred_max)
-        ax_len = ax_max-ax_min
-        ax_min -= ax_len*0.05
-        ax_max += ax_len*0.05
-        
-         
-        plt.xlim(ax_min, ax_max)
-        plt.ylim(ax_min, ax_max)
-        # ax.set_aspect('equal', adjustable='box')
-        st.pyplot(fig)
+    row_id = df_pred.index.to_numpy()
+    df_pred.insert(loc=0, column='row_id', value=row_id)
 
+    if expt_label:
+        highlight_only = st.checkbox('Only display selected mol in the correction fig')    
+    df_container = st.container()
+    
+    if expt_label and expt_label in df_pred.columns:
+        fig_df_structure(df_pred, expt_label, pred_label, df_container, mol_container, highlight_only=highlight_only)
+    else:
+        st.dataframe(df_pred)

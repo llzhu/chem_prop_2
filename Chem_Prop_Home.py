@@ -78,8 +78,8 @@ if study == DELANEY:
     url = os.path.join(env.src_data, 'delaney.csv')
     df_g = pd.read_csv(url)
     df_g = df_g[['Compound ID', 'log_M', 'SMILES']]
-    expt_col_name = 'log_Solubility_uM'
-    orig_col_name = 'Solubility_uM'
+    expt_col_name = 'log_Solubility_M'
+    orig_col_name = 'Solubility_M'
     df_g = df_g.rename(columns={'log_M':expt_col_name})
 
     apply_log = True   # Special logic

@@ -1,6 +1,9 @@
 import streamlit as st
 import torch
 from chem_prop_util import *
+import plotly.express as px
+
+
 
     
 def app_header():
@@ -51,3 +54,62 @@ def app_setup():
     st.write('***')
 
     return login_name, study, apply_log, excluded_list, new_model, overriddeen_container
+
+
+def fig_df_structure(df, expt_label, pred_label, df_container, mol_container, highlight_only):
+
+    fig = px.scatter(
+        df,
+        x=expt_label,
+        y=pred_label,
+        custom_data=["row_id"] 
+    )
+
+    fig.update_layout(
+    shapes=[
+        dict(
+            type="rect",
+            xref="paper",
+            yref="paper",
+            x0=0,
+            y0=0,
+            x1=1,
+            y1=1,
+            line=dict(color="black", width=2),
+            fillcolor="rgba(0,0,0,0)"
+            )
+        ]
+    )
+
+    event = st.plotly_chart(
+        fig,
+        on_select="rerun",
+        width='stretch'
+    )
+
+    if event and event.selection and event.selection["points"]:
+        selected_ids = [
+            point["customdata"]['0'] for point in event.selection["points"]
+        ]
+
+    
+        def highlight_row(row):
+            if row.name in selected_ids:
+                return ['background-color: yellow'] * len(row)
+            else:
+                return [''] * len(row)
+
+        if highlight_only:
+            df = df[df["row_id"].isin(selected_ids)]
+
+        style_df = df.style.apply(highlight_row, axis=1)
+        df_container.dataframe(style_df, hide_index=True)
+
+        
+        smi = df.at[selected_ids[0], SMILES]
+        mol = Chem.MolFromSmiles(smi)
+        mol_container.write('Selected mol:')
+        mol_container.write( moltosvg(mol), unsafe_allow_html=True) 
+
+    else:
+        df_container.dataframe(df, hide_index=True)
