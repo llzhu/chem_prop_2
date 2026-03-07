@@ -20,7 +20,7 @@ def app_header():
         st.subheader('Delaney Solubility Data Set:')
         st.markdown('Delaney, **Estimating Aqueous Solubility Directly from Molecular Structure**, _J. Chem. Inf. Comput. Sci._ 2004, 44, 3, 1000–1005.')
         st.subheader('Thrombin_IC50:')
-        st.markdown('IC50 of inhibitory activity against human thrombin CHEMBL204 with the following query:')
+        st.markdown('IC50 against human thrombin CHEMBL204 are from ChEMBL with the following query:')
         st.markdown("""activity.filter(target_chembl_id='CHEMBL204').filter(standard_type='IC50').filter(standard_relation='=')
                        .only(['molecule_chembl_id', 'canonical_smiles', 'standard_value', 'standard_units']""")
         st.write('***')
