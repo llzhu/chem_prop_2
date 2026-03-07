@@ -82,9 +82,8 @@ if study == DELANEY:
     orig_col_name = 'Solubility_M'
     df_g = df_g.rename(columns={'log_M':expt_col_name})
 
-    apply_log = True   # Special logic
+    apply_log = True   # Special logic - we still want to see the non-log data
     
-    # overriddeen_container.warning('The above selection is overridden to False')
    
 elif study == THROBIN_IC50:
     activity = new_client.activity
