@@ -92,7 +92,7 @@ elif study == THROBIN_IC50:
     df_g = pd.DataFrame(data_ic50)
     orig_col_name = 'IC50'
     df_g = df_g.rename(columns={'standard_value': orig_col_name})
-    st.dataframe(df_g)
+    # st.dataframe(df_g)
 
     (df_g, expt_col_name)  = standarize(df_g, THROBIN_IC50, orig_col_name, apply_log)
     
