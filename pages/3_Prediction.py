@@ -153,10 +153,10 @@ with col2:
     df_pred.insert(loc=0, column='row_id', value=row_id)
 
     if expt_label:
-        highlight_only = st.checkbox('Only display selected mol in the correction fig')    
+        highlight_only = st.checkbox('Only display selected mol in the correlation fig')    
     df_container = st.container()
     
     if expt_label and expt_label in df_pred.columns:
         fig_df_structure(df_pred, expt_label, pred_label, df_container, mol_container, highlight_only=highlight_only)
     else:
-        st.dataframe(df_pred)
+        st.dataframe(df_pred, hide_index=True)

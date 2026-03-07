@@ -150,7 +150,7 @@ with st.sidebar:
 st.write('***')
 c1, c2 = st.columns(2)
 with c1:
-    highlight_only = st.checkbox('Only display selected mol in the correction fig')
+    highlight_only = st.checkbox('Only display selected mol in the correlation fig')
     df_container = st.container()
     
 
