@@ -2,7 +2,9 @@ import streamlit as st
 import torch
 from chem_prop_util import *
 import plotly.express as px
-
+from chemprop import models
+import json
+import pickle
 
 
     
@@ -54,6 +56,43 @@ def app_setup():
     st.write('***')
 
     return login_name, study, apply_log, excluded_list, new_model, overriddeen_container
+
+def get_model_and_paras(torch_file_paths:TorchFilePaths, app_vars:AppVars) -> models.MPNN:
+    use_saved_model = st.selectbox(f'Use previously saved {app_vars.study} model:', MODEL_OPTIONS)
+    app_dir = ''
+    checkpoint_dir = ''
+    if use_saved_model == MY_MODEL:
+        app_dir = torch_file_paths.save_smiles_user
+        checkpoint_dir = torch_file_paths.save_checkpoints_user
+    elif use_saved_model == MASTER_MODEL:
+        app_dir = torch_file_paths.save_smiles_dir
+        checkpoint_dir = torch_file_paths.save_checkpoints
+    
+    app_file = os.path.join(app_dir, APP_FILE)
+    if os.path.isfile(app_file):
+        with open(app_file, 'r', encoding='utf-8') as f:
+            app_vars = json.load(f)
+            app_vars =AppVars(**app_vars)
+    else:
+        st.write(f"Selected model does not exist. Check out {MASTER_MODEL if use_saved_model == MY_MODEL else MASTER_MODEL} ")
+        st.stop()
+
+
+    paras_file = os.path.join(checkpoint_dir, PARAS_FILE)
+    if os.path.isfile(paras_file):
+        with open(paras_file, 'rb') as f:
+            model_paras = pickle.load(f) 
+    else:
+        st.write("Selected model does not exist.")
+        st.stop()
+
+    model_files = os.listdir(checkpoint_dir)
+    model_files = [ f for f in model_files if re.match(MODEL_FILE_PATTERN, f)]
+    best_model = min(model_files, key=lambda x:  get_loss_val(x))
+    mpnn = models.MPNN.load_from_file(os.path.join(checkpoint_dir, best_model))
+
+    return mpnn, model_paras
+
 
 
 def fig_df_structure(df, expt_label, pred_label, df_container, mol_container, highlight_only):
