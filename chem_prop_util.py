@@ -133,7 +133,6 @@ def remove_low_variance(input_data, threshold=0.1) -> pd.DataFrame:
     return input_data[input_data.columns[selection.get_support(indices=True)]]
 
 
-
 def delete_contents(folder):
     for filename in os.listdir(folder):
         file_path = os.path.join(folder, filename)
@@ -224,7 +223,7 @@ def get_floor(in_num: float, floor: float)-> float:
         out_num = floor
     return out_num
 
-@st.cache_data   
+@st.cache_resource
 def get_fp(mols, radius=2, fp_keys = None):
 
     fps = [AllChem.GetMorganFingerprint(m, radius=2) for m in mols]
@@ -251,7 +250,7 @@ def get_fp(mols, radius=2, fp_keys = None):
     df = pd.DataFrame(data, columns=all_keys)
     return df
 
-
+@st.cache_resource
 def get_rdkit_descriptors(mol_list, scale_dc:bool, scaler=None):
     descriptor_names = [x[0] for x in Descriptors._descList]
     calc = MoleculeDescriptors.MolecularDescriptorCalculator(descriptor_names)
@@ -271,7 +270,7 @@ def get_rdkit_descriptors(mol_list, scale_dc:bool, scaler=None):
     return np.array(mol_descriptors), scaler
     
 
-@st.cache_data
+
 def get_datapoint(mols, model_paras: ModelParas, ys=None, modify_model_paras=True):
     """ calculate datapoint; model_paras are updated if modify_model_paras=True
     """
