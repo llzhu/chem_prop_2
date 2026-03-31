@@ -223,7 +223,7 @@ def get_floor(in_num: float, floor: float)-> float:
         out_num = floor
     return out_num
 
-@st.cache_resource
+
 def get_fp(mols, radius=2, fp_keys = None):
 
     fps = [AllChem.GetMorganFingerprint(m, radius=2) for m in mols]
@@ -250,7 +250,7 @@ def get_fp(mols, radius=2, fp_keys = None):
     df = pd.DataFrame(data, columns=all_keys)
     return df
 
-@st.cache_resource
+
 def get_rdkit_descriptors(mol_list, scale_dc:bool, scaler=None):
     descriptor_names = [x[0] for x in Descriptors._descList]
     calc = MoleculeDescriptors.MolecularDescriptorCalculator(descriptor_names)
