@@ -87,8 +87,9 @@ if study == DELANEY:
    
 elif study == THROBIN_IC50:
     activity = new_client.activity
-    data_ic50 = activity.filter(target_chembl_id="CHEMBL204").filter(standard_type='IC50').filter(standard_relation='=').only(['molecule_chembl_id', 'canonical_smiles', 'standard_value', 'standard_units'])
-
+    # data_ic50 = activity.filter(target_chembl_id="CHEMBL204").filter(standard_type='IC50').filter(standard_relation='=').only(['molecule_chembl_id', 'canonical_smiles', 'standard_value', 'standard_units'])
+    # load locally to avoid occasionl failure loading from ChEMBL
+    data_ic50 = pd.read_csv(os.path.join(env.src_data, 'thrombin_ic50.csv'))
     df_g = pd.DataFrame(data_ic50)
     orig_col_name = 'IC50'
     df_g = df_g.rename(columns={'standard_value': orig_col_name})
