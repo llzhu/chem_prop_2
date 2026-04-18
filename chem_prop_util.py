@@ -395,7 +395,7 @@ def get_fp(mols, radius=2, fp_keys = None):
     return df
 
 @st.cache_data
-def get_rdkit_descriptors(mol_list, scale_dc:bool, scaler=None):
+def get_rdkit_descriptors(mol_list, scale_dc:bool, _scaler=None):
     descriptor_names = [x[0] for x in Descriptors._descList]
     calc = MoleculeDescriptors.MolecularDescriptorCalculator(descriptor_names)
     mol_descriptors = []
@@ -405,13 +405,13 @@ def get_rdkit_descriptors(mol_list, scale_dc:bool, scaler=None):
 
     
     if scale_dc:
-        if scaler == None:
-            scaler = preprocessing.StandardScaler().fit(mol_descriptors)
-            mol_descriptors = scaler.transform(mol_descriptors)
+        if _scaler == None:
+            _scaler = preprocessing.StandardScaler().fit(mol_descriptors)
+            mol_descriptors = _scaler.transform(mol_descriptors)
         else:
-            mol_descriptors = scaler.transform(mol_descriptors)
+            mol_descriptors = _scaler.transform(mol_descriptors)
 
-    return np.array(mol_descriptors), scaler
+    return np.array(mol_descriptors), _scaler
     
 
 
