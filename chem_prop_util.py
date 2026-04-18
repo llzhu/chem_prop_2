@@ -8,7 +8,7 @@ from rdkit.Chem import rdDepictor,AllChem
 from sklearn import preprocessing
 from rdkit.Chem import AllChem, Descriptors
 from rdkit.ML.Descriptors import MoleculeDescriptors
-from io import StringIO
+from io import StringIO, BytesIO
 import os
 import shutil
 from chemprop import data, featurizers, models, nn, utils
@@ -20,10 +20,17 @@ import math
 from icecream import ic
 import base64
 from itertools import chain
+import boto3
+import pickle
+import datetime
+import random
+import json
 
 BMP = 'Bond_Message_Passing' 
 AMP = 'Atom_Message_Passing'
 
+INPUT_FILES_DIR = 'input_smiles'
+CHECKPOINTS_DIR = 'checkpoints'
 INPUT_SMILES_FILE = 'input_smiles.csv'
 TEST_SMILES_FILE = 'test_smiles.csv'
 VAL_SMILES_FILE = 'val_smiles.csv'
@@ -59,21 +66,122 @@ MY_MODEL = 'My model'
 MASTER_MODEL = 'Master Model'
 MODEL_OPTIONS = [MY_MODEL, MASTER_MODEL]
 
+
+def get_tmp_fiilename(file_base, ext):
+    ts = int(datetime.datetime.now().timestamp() * 1000000)
+    rand_num = random.randint(0, 9999)
+    return f'{file_base}_{ts}_{rand_num}.{ext}'
+
+s3client = boto3.client(
+    "s3",
+    aws_access_key_id = st.secrets['aws_access_key_id'],
+    aws_secret_access_key = st.secrets['aws_secret_access_key'],
+    region_name = st.secrets['region_name']
+)
+
+s3resource = boto3.resource(
+    "s3",
+    aws_access_key_id = st.secrets['aws_access_key_id'],
+    aws_secret_access_key = st.secrets['aws_secret_access_key'],
+    region_name = st.secrets['region_name']
+)
+
+
+def download_from_s3(bucket_name, key, local_file):
+    s3client.download_file(
+    bucket_name,
+    key,
+    local_file
+)
+    
+
+def load_model(bucket_name, key, local_file):
+    download_from_s3(bucket_name, key, local_file)
+    mpnn = models.MPNN.load_from_file(local_file)
+    return mpnn
+
+
+def pickle_to_s3(data_obj, bucket, key):
+    # Serialize to memory
+    buffer = BytesIO()
+    pickle.dump(data_obj, buffer)
+    buffer.seek(0)
+
+    # Upload to S3
+    s3client.put_object(
+        Bucket=bucket,
+        Key=key,
+        Body=buffer.getvalue()
+    )
+
+def get_from_s3pickle(bucket, key):
+    # Download pickle from S3
+    ic(bucket)
+    ic(key)
+    pickle_obj = s3client.get_object(Bucket=bucket, Key=key)
+
+    # Deserialize
+    buffer = BytesIO(pickle_obj["Body"].read())
+    data_obj = pickle.load(buffer)
+
+    return data_obj
+
+def get_from_s3(bucket, key):
+    # Download pickle from S3
+    obj = s3client.get_object(Bucket=bucket, Key=key)
+    return obj
+
+def any_contents(bucket, prefix):
+    response = s3client.list_objects_v2(
+        Bucket=bucket,
+        Prefix=prefix,
+        Delimiter="/"
+    )
+    return len(response.get("Contents", []))>0
+    
+    
+
+def get_df_from_s3csv(bucket, key):
+    # Get object from S3
+    obj = s3client.get_object(Bucket=bucket, Key=key)
+    df = pd.read_csv(BytesIO(obj["Body"].read()))
+    return df
+
+def copy_to_s3(local_folder:str, bucket_name:str, s3_prefix:str):
+    for root, dirs, files in os.walk(local_folder):
+        for file in files:
+            local_path = os.path.join(root, file)
+
+            # create relative path
+            relative_path = os.path.relpath(local_path, local_folder)
+
+            # convert to S3 key (use forward slashes)
+            s3_key = os.path.join(s3_prefix, relative_path).replace("\\", "/")
+            s3client.upload_file(local_path, bucket_name, s3_key)
+
+
+def list_prefix(bucket_name, prefix):
+    response = s3client.list_objects_v2(
+        Bucket=bucket_name,
+        Prefix=prefix,
+        Delimiter="/"
+    )
+
+    file_list = []
+    for obj in response.get("Contents", []):
+        file_list.append(obj["Key"])
+
+    return file_list
+
+
+
+
 def get_loss_val(model_file, pattern_str=MODEL_FILE_PATTERN):
     pattern =re.compile(pattern_str)
     match = pattern.match(model_file)
     if match:
         return float(match.group(3))
 
-    
-@dataclass
-class TorchFilePaths:
-    input_smiles_user: str
-    save_smiles_user: str
-    save_smiles_dir: str
-    checkpoints_user: str
-    save_checkpoints_user: str
-    save_checkpoints: str
 
 @dataclass
 class AppVars:
@@ -106,7 +214,43 @@ class Env:
     app_data: str
     admins: List[str] = field(default_factory=list)
     modelers: List[str] = field(default_factory=list)
+    s3_bucket: str = ''
 
+@st.cache_data
+def get_model_paras_from_s3(env:Env, app_vars:AppVars, base_dir:str) -> models.MPNN:
+    
+    app_dir = os.path.join(base_dir, INPUT_FILES_DIR)
+    checkpoint_dir = os.path.join(base_dir, CHECKPOINTS_DIR)
+    # get app_vars
+    app_file_key = os.path.join(app_dir, APP_FILE).replace('\\', '/')
+    app_file = get_from_s3(env.s3_bucket, app_file_key)
+    app_vars = json.load(app_file['Body'])
+    app_vars =AppVars(**app_vars)
+        
+    # get best model
+    checkpoints_prefix = checkpoint_dir.replace('\\', '/')+'/'
+    model_files = list_prefix(env.s3_bucket, checkpoints_prefix)
+    model_files = [ f.replace(checkpoints_prefix, '') for f in model_files]
+
+
+    if model_files and len(model_files)==0:
+        st.error('No saved model available.')
+        st.stop()
+
+    model_files = [ f for f in model_files if re.match(MODEL_FILE_PATTERN, f)]
+         
+    best_model = min(model_files, key=lambda x:  get_loss_val(x))
+    model_s3key = os.path.join(checkpoint_dir, best_model).replace('\\', '/')
+
+    # get best model
+    local_tmp_file = os.path.join(env.app_data, get_tmp_fiilename('tmp', 'ckp'))
+    mpnn = load_model(env.s3_bucket, model_s3key, local_tmp_file)
+    os.remove(local_tmp_file)
+    # get model_paras
+    model_paras = get_from_s3pickle(env.s3_bucket, os.path.join(checkpoint_dir, PARAS_FILE).replace('\\', '/'))
+
+
+    return mpnn, model_paras, app_vars
 
 # Currently not used
 def get_rdkit_fp(mol_list, nb=2048, radius=4):
@@ -223,7 +367,7 @@ def get_floor(in_num: float, floor: float)-> float:
         out_num = floor
     return out_num
 
-
+@st.cache_data
 def get_fp(mols, radius=2, fp_keys = None):
 
     fps = [AllChem.GetMorganFingerprint(m, radius=2) for m in mols]
@@ -250,7 +394,7 @@ def get_fp(mols, radius=2, fp_keys = None):
     df = pd.DataFrame(data, columns=all_keys)
     return df
 
-
+@st.cache_data
 def get_rdkit_descriptors(mol_list, scale_dc:bool, scaler=None):
     descriptor_names = [x[0] for x in Descriptors._descList]
     calc = MoleculeDescriptors.MolecularDescriptorCalculator(descriptor_names)

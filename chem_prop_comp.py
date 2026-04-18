@@ -57,16 +57,21 @@ def app_setup():
 
     return login_name, study, apply_log, excluded_list, new_model, overriddeen_container
 
-def get_model_and_paras(torch_file_paths:TorchFilePaths, app_vars:AppVars) -> models.MPNN:
+def get_model_and_paras(env:Env, app_vars:AppVars) -> models.MPNN:
+    user_dir = os.path.join(env.app_data, app_vars.login_name, app_vars.study)
+    master_dir = os.path.join(env.app_data, app_vars.study)
+    input_files_user = os.path.join(user_dir, INPUT_FILES_DIR)
+    checkpoints_user = os.path.join(user_dir, CHECKPOINTS_DIR)
+
     use_saved_model = st.selectbox(f'Use previously saved {app_vars.study} model:', MODEL_OPTIONS)
     app_dir = ''
     checkpoint_dir = ''
     if use_saved_model == MY_MODEL:
-        app_dir = torch_file_paths.save_smiles_user
-        checkpoint_dir = torch_file_paths.save_checkpoints_user
+        app_dir = os.path.join(user_dir, INPUT_FILES_DIR)
+        checkpoint_dir = os.path.join(user_dir, CHECKPOINTS_DIR)
     elif use_saved_model == MASTER_MODEL:
-        app_dir = torch_file_paths.save_smiles_dir
-        checkpoint_dir = torch_file_paths.save_checkpoints
+        app_dir = os.path.join(master_dir, INPUT_FILES_DIR)
+        checkpoint_dir = os.path.join(master_dir, CHECKPOINTS_DIR)
     
     app_file = os.path.join(app_dir, APP_FILE)
     if os.path.isfile(app_file):
@@ -93,6 +98,53 @@ def get_model_and_paras(torch_file_paths:TorchFilePaths, app_vars:AppVars) -> mo
 
     return mpnn, model_paras
 
+def get_model_and_paras_from_s3(env:Env, app_vars:AppVars) -> models.MPNN:
+
+    """ will be replaced by get_model_paras_from_s3 in chem_prop_util
+    """
+    user_dir = os.path.join(env.app_data, app_vars.login_name, app_vars.study)
+    master_dir = os.path.join(env.app_data, app_vars.study)
+
+    use_saved_model = st.selectbox(f'Use previously saved {app_vars.study} model:', MODEL_OPTIONS)
+    app_dir = ''
+    checkpoint_dir = ''
+    if use_saved_model == MY_MODEL:
+        app_dir = os.path.join(user_dir, INPUT_FILES_DIR)
+        checkpoint_dir = os.path.join(user_dir, CHECKPOINTS_DIR)
+    elif use_saved_model == MASTER_MODEL:
+        app_dir = os.path.join(master_dir, INPUT_FILES_DIR)
+        checkpoint_dir = os.path.join(master_dir, CHECKPOINTS_DIR)
+    
+    # get app_vars
+    app_file_key = os.path.join(app_dir, APP_FILE).replace('\\', '/')
+    app_file = get_from_s3(env.s3_bucket, app_file_key)
+    app_vars = json.load(app_file['Body'])
+    app_vars =AppVars(**app_vars)
+        
+    # get best model
+    checkpoints_prefix = checkpoint_dir.replace('\\', '/')+'/'
+    model_files = list_prefix(env.s3_bucket, checkpoints_prefix)
+    model_files = [ f.replace(checkpoints_prefix, '') for f in model_files]
+
+
+    if model_files and len(model_files)==0:
+        st.error('No saved model available.')
+        st.stop()
+
+    model_files = [ f for f in model_files if re.match(MODEL_FILE_PATTERN, f)]
+         
+    best_model = min(model_files, key=lambda x:  get_loss_val(x))
+    model_s3key = os.path.join(checkpoint_dir, best_model).replace('\\', '/')
+
+    # get best model
+    local_tmp_file = os.path.join(env.app_data, get_tmp_fiilename('tmp', 'ckp'))
+    mpnn = load_model(env.s3_bucket, model_s3key, local_tmp_file)
+    os.remove(local_tmp_file)
+    # get model_paras
+    model_paras = get_from_s3pickle(env.s3_bucket, os.path.join(checkpoint_dir, PARAS_FILE).replace('\\', '/'))
+
+
+    return mpnn, model_paras, app_vars
 
 
 def fig_df_structure(df, expt_label, pred_label, df_container, mol_container, highlight_only):

@@ -12,18 +12,15 @@ import seaborn as sns
 from chem_prop_util import *
 from chem_prop_comp import *
 
-torch_file_paths: TorchFilePaths = None
-if 'torch_file_paths' in st.session_state:
-    torch_file_paths = st.session_state['torch_file_paths']
-
-if not torch_file_paths:
-    st.write('Go back to home page to start the applications.')
-    st.stop() 
+env: Env = None
+if 'env' in st.session_state:
+    env = st.session_state['env']
 
 app_vars: AppVars = None
 if 'app_vars' in st.session_state:
     app_vars = st.session_state['app_vars']
-else:
+
+if not env or not app_vars:
     st.write(f"Go back to home page to start the applications.")
     st.stop()
 
@@ -44,75 +41,39 @@ with col3:
         st.write("")
         copy2master = st.button('Copy my model to master', disabled=(not app_vars.is_admin) )
 
-app_file_dir = ''
-if loaded_model == 'Master Model':
-    checkpoint_dir = torch_file_paths.save_checkpoints
-    app_file_dir = torch_file_paths.save_smiles_dir
-    if data_set == 'Test':
-        data_file = os.path.join(torch_file_paths.save_smiles_dir, TEST_SMILES_FILE)
-    elif data_set == 'Validation':
-        data_file = os.path.join(torch_file_paths.save_smiles_dir, VAL_SMILES_FILE)
-    elif data_set == 'Train':
-        data_file = os.path.join(torch_file_paths.save_smiles_dir, TRAIN_SMILES_FILE)
-    else:
-        st.stop()
-    
-elif loaded_model == 'My model':
-    checkpoint_dir = torch_file_paths.save_checkpoints_user
-    app_file_dir = torch_file_paths.save_smiles_user
-    if data_set == 'Test':
-        data_file = os.path.join(torch_file_paths.save_smiles_user, TEST_SMILES_FILE)  
-    elif data_set == 'Validation':
-        data_file = os.path.join(torch_file_paths.save_smiles_user, VAL_SMILES_FILE)
-    elif data_set == 'Train':
-        data_file = os.path.join(torch_file_paths.save_smiles_user, TRAIN_SMILES_FILE)
-    else:
-        st.stop()
-     
+
+user_dir = os.path.join(env.app_data, app_vars.login_name, app_vars.study)
+master_dir = os.path.join(env.app_data, app_vars.study)
+base_dir = master_dir if loaded_model == 'Master Model' else user_dir
+
+mpnn, model_paras, app_vars = get_model_paras_from_s3(env, app_vars, base_dir)
+app_file_dir = os.path.join(base_dir, INPUT_FILES_DIR)  
+
+if data_set == 'Test':
+    test_file_s3key = os.path.join(app_file_dir, TEST_SMILES_FILE).replace("\\", "/")
+    data_file = get_from_s3(env.s3_bucket, test_file_s3key)
+    # data_file = os.path.join(app_file_dir, TEST_SMILES_FILE)
+elif data_set == 'Validation':
+    data_file = get_from_s3(env.s3_bucket, os.path.join(app_file_dir, VAL_SMILES_FILE).replace("\\", "/"))
+    # data_file = os.path.join(app_file_dir, VAL_SMILES_FILE)
+elif data_set == 'Train':
+    data_file = get_from_s3(env.s3_bucket, os.path.join(app_file_dir, TRAIN_SMILES_FILE).replace("\\", "/"))
+    # data_file = os.path.join(app_file_dir, TRAIN_SMILES_FILE)
 else:
     st.stop()
-
-
-
-app_file = os.path.join(app_file_dir, APP_FILE)
-if os.path.isfile(app_file):
-    with open(app_file, 'r', encoding='utf-8') as f:
-        app_vars = json.load(f)
-        app_vars =AppVars(**app_vars)
-else:
-    st.write(f"Selected model does not exist. Check out {MASTER_MODEL if loaded_model == MY_MODEL else MASTER_MODEL} ")
-    st.stop()
     
-ph = st.container()
-
-
-
-if not os.path.exists(checkpoint_dir) or len(os.listdir(checkpoint_dir))==0:
-    st.error('No saved model available.')
-    st.stop()
+# ph = st.container()
     
-model_files = os.listdir(checkpoint_dir)
-model_files = [ f for f in model_files if re.match(MODEL_FILE_PATTERN, f)]
-         
-best_model = min(model_files, key=lambda x:  get_loss_val(x))
-    
-  
-paras_file = os.path.join(checkpoint_dir, PARAS_FILE)
-with open(paras_file, 'rb') as f:
-    model_paras = pickle.load(f)
-            
 para_container.json(model_paras.__dict__, expanded=False)
         
    
-
-df = pd.read_csv(data_file)
+df = pd.read_csv(BytesIO(data_file["Body"].read()))
+# df = pd.read_csv(data_file)
 smis = df.loc[:, 'SMILES'].values
 mols = [utils.make_mol(smi, keep_h=False, add_h=False) for smi in smis]
 # data_point = [data.MoleculeDatapoint.from_smi(smi) for smi in smis]
 data_point = get_datapoint(mols, model_paras,ys=None, modify_model_paras=False)
 
-# mpnn = models.MPNN.load_from_checkpoint(os.path.join(checkpoint_dir, best_model ))
-mpnn = models.MPNN.load_from_file(os.path.join(checkpoint_dir, best_model ))
 
 featurizer = featurizers.SimpleMoleculeMolGraphFeaturizer()
 d_set = data.MoleculeDataset(data_point, featurizer=featurizer)
@@ -184,13 +145,13 @@ with c2:
     
     
     
-    if copy2master:
-        if os.path.exists(torch_file_paths.save_checkpoints):
-            shutil.rmtree(torch_file_paths.save_checkpoints)
-        shutil.copytree(torch_file_paths.save_checkpoints_user, torch_file_paths.save_checkpoints)
+    # if copy2master:
+    #     if os.path.exists(torch_file_paths.save_checkpoints):
+    #         shutil.rmtree(torch_file_paths.save_checkpoints)
+    #     shutil.copytree(torch_file_paths.save_checkpoints_user, torch_file_paths.save_checkpoints)
         
-        if os.path.exists(torch_file_paths.save_smiles_dir):
-            shutil.rmtree(torch_file_paths.save_smiles_dir)
-        shutil.copytree(torch_file_paths.save_smiles_user, torch_file_paths.save_smiles_dir)
+    #     if os.path.exists(torch_file_paths.save_smiles_dir):
+    #         shutil.rmtree(torch_file_paths.save_smiles_dir)
+    #     shutil.copytree(torch_file_paths.save_smiles_user, torch_file_paths.save_smiles_dir)
         
-        ph.write("Your model has been copied to master model")
+    #     ph.write("Your model has been copied to master model")

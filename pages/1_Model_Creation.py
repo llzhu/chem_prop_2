@@ -19,7 +19,23 @@ from icecream import ic
 
 
 start = timer()
-    
+
+env:Env = None
+if 'env' in st.session_state:
+    env = st.session_state['env']
+
+if not env:
+    st.write('Go back to home page to start the applications.')
+    st.stop()
+
+app_vars:AppVars = None
+if 'app_vars' in st.session_state:   # basic app vars; will be loaded
+    app_vars = st.session_state['app_vars'] 
+
+if not app_vars.login_name:
+    st.write('You need to enter a login name in the home page to create a model.')
+    st.stop()
+
 new_model = False
 if 'new_model' in st.session_state:
     new_model = st.session_state['new_model']
@@ -28,23 +44,20 @@ if not new_model:
     st.write('You are using an existing model. No new models will be created.')
     st.stop()
 
-torch_file_paths: TorchFilePaths = None
-if 'torch_file_paths' in st.session_state:
-    torch_file_paths = st.session_state['torch_file_paths']
 
-if not torch_file_paths:
-    st.write('Go back to home page to start the applications.')
-    st.stop()
 
+user_dir = os.path.join(env.app_data, app_vars.login_name, app_vars.study)
+master_dir = os.path.join(env.app_data, app_vars.study)
+
+input_files_user = os.path.join(user_dir, INPUT_FILES_DIR)
+checkpoints_user = os.path.join(user_dir, CHECKPOINTS_DIR)
 # get complete app_vars
-app_file = os.path.join(torch_file_paths.input_smiles_user, APP_FILE)
+app_file = os.path.join(input_files_user, APP_FILE)
+ic(app_file)
 with open(app_file, 'r', encoding='utf-8') as f:
     app_vars = json.load(f)
     app_vars =AppVars(**app_vars)
 
-if not app_vars.login_name:
-    st.write('You need to enter a login name in the home page to create a model.')
-    st.stop()
    
 col1, col2, col3, col4, col5, col6,  = st.columns(6)
 with col1:
@@ -105,9 +118,9 @@ if go:
     # st.session_state['model_paras'] = model_paras
     # ic(model_paras)
     
-    delete_contents(torch_file_paths.checkpoints_user)
+    delete_contents(checkpoints_user)
     
-    df_input = pd.read_csv(os.path.join(torch_file_paths.input_smiles_user, INPUT_SMILES_FILE))
+    df_input = pd.read_csv(os.path.join(input_files_user, INPUT_SMILES_FILE))
 
     # st.dataframe(df_input)
 
@@ -171,7 +184,7 @@ if go:
     
 
     checkpoint_callback = ModelCheckpoint(
-        dirpath=torch_file_paths.checkpoints_user,  # Specify the path where you want to save checkpoints
+        dirpath=checkpoints_user,  # Specify the path where you want to save checkpoints
         filename=f'{mol_graph}' + '_{epoch}_{val_loss:.3f}',  # Optionally, specify the filename format
         save_top_k=5,  # Save the top 5 checkpoints
         monitor='val_loss',  # Monitor the validation loss
@@ -214,9 +227,9 @@ if go:
 
         df_test = df_input.iloc[test_indices[0]]
 
-        df_test.to_csv(os.path.join(torch_file_paths.input_smiles_user, TEST_SMILES_FILE), index=False)
-        (df_input.iloc[val_indices[0]]).to_csv(os.path.join(torch_file_paths.input_smiles_user, VAL_SMILES_FILE), index=False)
-        (df_input.iloc[train_indices[0]]).to_csv(os.path.join(torch_file_paths.input_smiles_user, TRAIN_SMILES_FILE), index=False)
+        df_test.to_csv(os.path.join(input_files_user, TEST_SMILES_FILE), index=False)
+        (df_input.iloc[val_indices[0]]).to_csv(os.path.join(input_files_user, VAL_SMILES_FILE), index=False)
+        (df_input.iloc[train_indices[0]]).to_csv(os.path.join(input_files_user, TRAIN_SMILES_FILE), index=False)
         
         
 
@@ -256,31 +269,19 @@ if go:
         st.pyplot(fig)
 
     # persist model parameters to a pickle file
-    para_file_name = os.path.join(torch_file_paths.checkpoints_user, PARAS_FILE)
+    para_file_name = os.path.join(checkpoints_user, PARAS_FILE)
     with open(para_file_name, 'wb') as f:
         pickle.dump(model_paras, f)
 
-    app_file_name = os.path.join(torch_file_paths.input_smiles_user, APP_FILE)
+    app_file_name = os.path.join(input_files_user, APP_FILE)
     with open(app_file_name, 'w', encoding='utf-8') as f:
         json.dump(app_vars.__dict__, f, indent=4)
     
     if save_model == 'To my folder':
-        if os.path.exists(torch_file_paths.save_checkpoints_user):
-            shutil.rmtree(torch_file_paths.save_checkpoints_user)
-        shutil.copytree(torch_file_paths.checkpoints_user, torch_file_paths.save_checkpoints_user)
-        
-        if os.path.exists(torch_file_paths.save_smiles_user):
-            shutil.rmtree(torch_file_paths.save_smiles_user)
-        shutil.copytree(torch_file_paths.input_smiles_user, torch_file_paths.save_smiles_user)
+        copy_to_s3(user_dir, env.s3_bucket, user_dir)
         
     elif save_model == 'To Master':
-        if os.path.exists(torch_file_paths.save_checkpoints):
-            shutil.rmtree(torch_file_paths.save_checkpoints)
-        shutil.copytree(torch_file_paths.checkpoints_user, torch_file_paths.save_checkpoints)
-        
-        if os.path.exists(torch_file_paths.save_smiles_dir):
-            shutil.rmtree(torch_file_paths.save_smiles_dir)
-        shutil.copytree(torch_file_paths.input_smiles_user, torch_file_paths.save_smiles_dir)
+        copy_to_s3(user_dir, env.s3_bucket, master_dir)
         
 
 

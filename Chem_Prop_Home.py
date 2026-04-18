@@ -16,10 +16,13 @@ from icecream import ic
 
 st.set_page_config(page_title='What this page is about - ', layout='wide')
 
+
+
 env = Env(  st.secrets['src_data'],
             st.secrets['app_data'],
             st.secrets['admins'],       
-            st.secrets['modelers']
+            st.secrets['modelers'],
+            st.secrets['s3_bucket'],
         ) 
 
 app_header()
@@ -27,32 +30,23 @@ app_header()
 login_name, study, apply_log, excluded_list, new_model, overriddeen_container = app_setup()
 
 
-checkpoints_user = os.path.join(env.app_data, rf'{login_name}/{study}/checkpoints')
-save_checkpoints_user = os.path.join(env.app_data, rf'{login_name}/{study}/save_checkpoints')
-save_checkpoints = os.path.join(env.app_data, rf'{study}/save_checkpoints')  # master saving folder
-
-input_smiles_user = os.path.join(env.app_data, rf'{login_name}/{study}/input_smiles')
-save_smiles_user = os.path.join(env.app_data, rf'{login_name}/{study}/save_smiles')
-save_smiles_dir = os.path.join(env.app_data, rf'{study}/input_smiles')
-
-torch_file_paths = TorchFilePaths(  input_smiles_user,
-                                        save_smiles_user,
-                                        save_smiles_dir,
-                                        checkpoints_user,
-                                        save_checkpoints_user,
-                                        save_checkpoints
-                                )
-
 app_vars = AppVars( study,                    
                     login_name in env.admins, 
                     login_name,
                     apply_log=apply_log
                 )
 
+
+
+user_dir = os.path.join(env.app_data, app_vars.login_name, app_vars.study)
+master_dir = os.path.join(env.app_data, app_vars.study)
+
+input_files_user = os.path.join(user_dir, INPUT_FILES_DIR)
+checkpoints_user = os.path.join(user_dir, CHECKPOINTS_DIR)
+
 st.session_state['new_model'] = new_model
-st.session_state['app_vars'] = app_vars   # basic paa vars are also in session
+st.session_state['app_vars'] = app_vars   # basic app vars are also in session
 st.session_state['env'] = env
-st.session_state['torch_file_paths'] = torch_file_paths
 
 if study == '--' or not login_name:
         st.error('You must enter a user name and select a dataset to create/upload a model. You must be an admin to manage models.' )
@@ -66,10 +60,10 @@ if not new_model:
 if not os.path.exists(checkpoints_user):
     os.makedirs(checkpoints_user)
 
-if not os.path.exists(input_smiles_user):
-    os.makedirs(input_smiles_user)
+if not os.path.exists(input_files_user):
+    os.makedirs(input_files_user)
 elif new_model:
-    delete_contents(input_smiles_user)
+    delete_contents(input_files_user)
    
 df_g = None
 bin_0 = [0.1]    # dfault value for bin size
@@ -139,7 +133,7 @@ elif study == AD_HOC:
          
 
 if df_g is not None and expt_col_name:
-    smiles_file_user = os.path.join(input_smiles_user, INPUT_SMILES_FILE)
+    smiles_file_user = os.path.join(input_files_user, INPUT_SMILES_FILE)
     df_g.to_csv(smiles_file_user, index=False)
 
     csv_input = get_df_csv(df_g)
@@ -152,7 +146,8 @@ if df_g is not None and expt_col_name:
     app_vars.dset_size = len(df_g)
    
     # Also persist it. Used only for Ad hoc
-    app_file_name = os.path.join(torch_file_paths.input_smiles_user, APP_FILE)
+    app_file_name = os.path.join(input_files_user, APP_FILE)
+    ic(app_file_name)
     with open(app_file_name, 'w', encoding='utf-8') as f:
         json.dump(app_vars.__dict__, f, indent=4)
 

@@ -12,14 +12,16 @@ import json
 import pickle
 import os
 
-torch_file_paths: TorchFilePaths = None
-if 'torch_file_paths' in st.session_state:
-    torch_file_paths = st.session_state['torch_file_paths']
+
+env: Env = None
+if 'env' in st.session_state:
+    env = st.session_state['env']
 
 app_vars: AppVars = None
 if 'app_vars' in st.session_state:
     app_vars = st.session_state['app_vars']
-else:
+
+if not env or not app_vars:
     st.write(f"Go back to home page to start the applications.")
     st.stop()
     
@@ -32,8 +34,15 @@ col1, col2 = st.columns([1,2])
 smiles = ''
 df_input = None
 with col1:
-    mpnn, model_paras = get_model_and_paras(torch_file_paths, app_vars)
-    
+
+    use_saved_model = st.selectbox(f'Use previously saved {app_vars.study} model:', MODEL_OPTIONS)
+
+    user_dir = os.path.join(env.app_data, app_vars.login_name, app_vars.study)
+    master_dir = os.path.join(env.app_data, app_vars.study)
+    base_dir = master_dir if use_saved_model == MASTER_MODEL else user_dir
+
+    mpnn, model_paras, app_vars = get_model_paras_from_s3(env, app_vars, base_dir)
+
     SMI_LIST = 'SMILES lists'
     FILE_UPLOAD = 'File Upload'
     mol_input = st.radio('Mol input:', [SMI_LIST, FILE_UPLOAD], horizontal=True)
