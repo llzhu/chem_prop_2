@@ -1,31 +1,27 @@
 import streamlit as st
-import chemprop
-from chemprop import data, featurizers, models, nn
+from chemprop import data, featurizers
 import torch
 from lightning import pytorch as pl
-from sklearn.metrics import root_mean_squared_error, r2_score
-import plotly.express as px
-import seaborn as sns
 from chem_prop_util import *
 from chem_prop_comp import *
-import json
-import pickle
-import os
 from StreamJSME import StreamJSME
 
-torch_file_paths: TorchFilePaths = None
-if 'torch_file_paths' in st.session_state:
-    torch_file_paths = st.session_state['torch_file_paths']
+
+
+env: Env = None
+if 'env' in st.session_state:
+    env = st.session_state['env']
 
 app_vars: AppVars = None
 if 'app_vars' in st.session_state:
     app_vars = st.session_state['app_vars']
-else:
+
+if not env or not app_vars:
     st.write(f"Go back to home page to start the applications.")
     st.stop()
+    
 
-
-mpnn, model_paras = get_model_and_paras(torch_file_paths, app_vars)
+mpnn, model_paras, app_vars = get_model_and_paras_from_s3(env, app_vars)
     
 c1, c2 = st.columns(2)
 with c1:
