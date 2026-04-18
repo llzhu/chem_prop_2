@@ -34,9 +34,14 @@ col1, col2 = st.columns([1,2])
 smiles = ''
 df_input = None
 with col1:
-    mpnn, model_paras, app_vars = get_model_and_paras_from_s3(env, app_vars)
-    # local_tmp_file = os.path.join(env.app_data, get_tmp_fiilename('tmp', 'ckp'))
-    # mpnn = load_model(env.s3_bucket, model_s3key, local_tmp_file)
+
+    use_saved_model = st.selectbox(f'Use previously saved {app_vars.study} model:', MODEL_OPTIONS)
+
+    user_dir = os.path.join(env.app_data, app_vars.login_name, app_vars.study)
+    master_dir = os.path.join(env.app_data, app_vars.study)
+    base_dir = master_dir if use_saved_model == MASTER_MODEL else user_dir
+
+    mpnn, model_paras, app_vars = get_model_paras_from_s3(env, app_vars, base_dir)
 
     SMI_LIST = 'SMILES lists'
     FILE_UPLOAD = 'File Upload'

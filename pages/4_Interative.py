@@ -21,7 +21,13 @@ if not env or not app_vars:
     st.stop()
     
 
-mpnn, model_paras, app_vars = get_model_and_paras_from_s3(env, app_vars)
+use_saved_model = st.selectbox(f'Use previously saved {app_vars.study} model:', MODEL_OPTIONS)
+
+user_dir = os.path.join(env.app_data, app_vars.login_name, app_vars.study)
+master_dir = os.path.join(env.app_data, app_vars.study)
+base_dir = master_dir if use_saved_model == MASTER_MODEL else user_dir
+
+mpnn, model_paras, app_vars = get_model_paras_from_s3(env, app_vars, base_dir)
     
 c1, c2 = st.columns(2)
 with c1:
