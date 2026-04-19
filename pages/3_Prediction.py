@@ -72,9 +72,16 @@ with col1:
             if  id_col != '--':
                 cmpd_list = df_input[id_col].tolist() 
 
-            exp_col = st.selectbox('Select Experiment val Column if available:', options=col_all)  
-            if  exp_col != '--':
-                exp_val_list = df_input[exp_col].tolist()   
+            exp_col_0 = st.selectbox('Select Experiment val Column if available:', options=col_all)  
+            if exp_col_0 != '--':
+
+                if  logarithmic_scale:
+                    exp_col = 'log_' + exp_col_0
+                    df_input[exp_col] = df_input[exp_col_0].apply(lambda x: math.log10(x))
+                else:
+                    exp_col = exp_col_0
+
+                exp_val_list = df_input[exp_col].tolist() 
 
 
     df_pred = None

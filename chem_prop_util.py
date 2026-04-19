@@ -64,7 +64,7 @@ RDKIT_2D_DESCRIPTOR_SCALED = 'Scaled 2D Descriptors'
 
 MY_MODEL = 'My model'
 MASTER_MODEL = 'Master Model'
-MODEL_OPTIONS = [MY_MODEL, MASTER_MODEL]
+MODEL_OPTIONS = [MASTER_MODEL, MY_MODEL]
 
 
 def get_tmp_fiilename(file_base, ext):
@@ -367,7 +367,7 @@ def get_floor(in_num: float, floor: float)-> float:
         out_num = floor
     return out_num
 
-@st.cache_data
+
 def get_fp(mols, radius=2, fp_keys = None):
 
     fps = [AllChem.GetMorganFingerprint(m, radius=2) for m in mols]
@@ -394,8 +394,8 @@ def get_fp(mols, radius=2, fp_keys = None):
     df = pd.DataFrame(data, columns=all_keys)
     return df
 
-@st.cache_data
-def get_rdkit_descriptors(mol_list, scale_dc:bool, _scaler=None):
+
+def get_rdkit_descriptors(mol_list, scale_dc:bool, scaler=None):
     descriptor_names = [x[0] for x in Descriptors._descList]
     calc = MoleculeDescriptors.MolecularDescriptorCalculator(descriptor_names)
     mol_descriptors = []
@@ -405,16 +405,16 @@ def get_rdkit_descriptors(mol_list, scale_dc:bool, _scaler=None):
 
     
     if scale_dc:
-        if _scaler == None:
-            _scaler = preprocessing.StandardScaler().fit(mol_descriptors)
-            mol_descriptors = _scaler.transform(mol_descriptors)
+        if scaler == None:
+            scaler = preprocessing.StandardScaler().fit(mol_descriptors)
+            mol_descriptors = scaler.transform(mol_descriptors)
         else:
-            mol_descriptors = _scaler.transform(mol_descriptors)
+            mol_descriptors = scaler.transform(mol_descriptors)
 
-    return np.array(mol_descriptors), _scaler
+    return np.array(mol_descriptors), scaler
     
 
-
+@st.cache_data
 def get_datapoint(mols, model_paras: ModelParas, ys=None, modify_model_paras=True):
     """ calculate datapoint; model_paras are updated if modify_model_paras=True
     """
