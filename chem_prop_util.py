@@ -25,6 +25,7 @@ import pickle
 import datetime
 import random
 import json
+import torch
 
 BMP = 'Bond_Message_Passing' 
 AMP = 'Atom_Message_Passing'
@@ -97,7 +98,7 @@ def download_from_s3(bucket_name, key, local_file):
 
 def load_model(bucket_name, key, local_file):
     download_from_s3(bucket_name, key, local_file)
-    mpnn = models.MPNN.load_from_file(local_file)
+    mpnn = models.MPNN.load_from_file(local_file, map_location=torch.device('cpu'))
     return mpnn
 
 
